@@ -31,12 +31,16 @@ def render(fonts, glyphname, cr, width, height):
     w = bounds[2] - bounds[0]
     h = bounds[3] - bounds[1]
     margin = max(w, h) * .1
+    mult = min(width / (w + 2 * margin), height / (h + 2 * margin))
 
-    cr.scale(width / (w + 2 * margin), height / (h + 2 * margin))
+    cr.translate((width - mult * (w + 2 * margin)) * .5,
+                 (height - mult * (h + 2 * margin)) * .5)
+    cr.scale(mult, mult)
     cr.translate(margin - bounds[0], margin + bounds[3])
     cr.scale(1, -1)
 
     cr.save()
+    cr.set_line_cap(cairo.LINE_CAP_ROUND)
     for glyph,glyphset,color in zip(glyphs,glyphsets,COLORS):
         cr.set_source_rgb(*color)
 
@@ -54,9 +58,7 @@ def render(fonts, glyphname, cr, width, height):
             cr.move_to(*pt)
             cr.line_to(*pt)
         cr.set_line_width(5)
-        cr.set_line_cap(cairo.LINE_CAP_ROUND)
         cr.stroke()
-
     cr.restore()
 
 
