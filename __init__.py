@@ -4,6 +4,7 @@ from fontTools.pens.recordingPen import RecordingPen, RecordingPointPen
 from fontTools.misc.arrayTools import unionRect
 from fontTools.pens.cairoPen import CairoPen
 
+import math
 from dataclasses import dataclass
 
 import cairo
@@ -20,7 +21,7 @@ class Segment:
     pos: complex
     vec: complex
 
-    def __len__(self):
+    def __abs__(self):
         return abs(self.vec)
 
 
@@ -72,6 +73,8 @@ def render(fonts, glyphname, cr, width, height):
         cr.stroke()
     cr.restore()
 
+    # Collect outlines from cairo paths
+
     paths = []
     for glyph,glyphset in zip(glyphs,glyphsets):
         pen = CairoPen(glyphset, cr)
@@ -95,6 +98,22 @@ def render(fonts, glyphname, cr, width, height):
                 first = last = None
             else:
                 assert False, tp
+
+    # Uniform parametrization of outlines
+    new_outlines = []
+    tolerance = .5 # cr.get_tolerance() * 5
+    for outline in outlines:
+        new_outline = []
+        new_outlines.append(new_outline)
+        for segment in outline:
+            n = math.ceil(abs(segment) / tolerance)
+            inc = segment.vec / n
+            pos = segment.pos
+            for i in range(n):
+                new_outline.append(Segment(pos, inc))
+                pos += inc
+    outlines = new_outlines
+    del new_outlines
 
 
 def main(font1, font2, glyphname=None):
