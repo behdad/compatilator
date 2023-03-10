@@ -74,6 +74,7 @@ def main(font1, font2, glyphname=None):
 
     win = Gtk.Window()
     win.connect("destroy", Gtk.main_quit)
+    win.connect("key-press-event", Gtk.main_quit)
     win.set_default_size(1000, 700)
     win.add(drawingarea)
 
