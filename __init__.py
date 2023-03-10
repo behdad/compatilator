@@ -1,8 +1,10 @@
 from fontTools.ttLib import TTFont
 from fontTools.pens.boundsPen import BoundsPen, ControlBoundsPen
+from fontTools.pens.recordingPen import RecordingPen, RecordingPointPen
 from fontTools.misc.arrayTools import unionRect
 from fontTools.pens.cairoPen import CairoPen
 
+import cairo
 import gi
 
 gi.require_version("Gtk", "3.0")
@@ -11,7 +13,7 @@ from gi.repository import Gtk
 COLORS = [(1,0,0), (0,0,1)]
 
 
-def render(fonts, glyphname, context, width, height):
+def render(fonts, glyphname, cr, width, height):
 
     glyphsets = [font.getGlyphSet() for font in fonts]
     glyphs = [glyphset[glyphname] for glyphset in glyphsets]
@@ -30,17 +32,32 @@ def render(fonts, glyphname, context, width, height):
     h = bounds[3] - bounds[1]
     margin = max(w, h) * .1
 
-    context.scale(width / (w + 2 * margin), height / (h + 2 * margin))
-    context.translate(margin - bounds[0], margin + bounds[3])
-    context.scale(1, -1)
+    cr.scale(width / (w + 2 * margin), height / (h + 2 * margin))
+    cr.translate(margin - bounds[0], margin + bounds[3])
+    cr.scale(1, -1)
 
-    context.save()
+    cr.save()
     for glyph,glyphset,color in zip(glyphs,glyphsets,COLORS):
-        pen = CairoPen(glyphset, context)
+        cr.set_source_rgb(*color)
+
+        pen = CairoPen(glyphset, cr)
         glyph.draw(pen)
-        context.set_source_rgb(*color)
-        context.stroke()
-    context.restore()
+        cr.set_line_width(2)
+        cr.stroke()
+
+        pen = RecordingPointPen()
+        glyph.drawPoints(pen)
+        for command in pen.value:
+            if command[0] != 'addPoint':
+                continue
+            pt = command[1][0]
+            cr.move_to(*pt)
+            cr.line_to(*pt)
+        cr.set_line_width(5)
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        cr.stroke()
+
+    cr.restore()
 
 
 def main(font1, font2, glyphname=None):
@@ -48,9 +65,9 @@ def main(font1, font2, glyphname=None):
     global fonts
     fonts = [TTFont(path) for path in (font1, font2)]
 
-    def on_draw(da, context):
+    def on_draw(da, cr):
         alloc = da.get_allocation()
-        render(fonts, glyphname, context, alloc.width, alloc.height)
+        render(fonts, glyphname, cr, alloc.width, alloc.height)
 
     drawingarea = Gtk.DrawingArea()
     drawingarea.connect("draw", on_draw)
