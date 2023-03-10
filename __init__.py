@@ -4,6 +4,8 @@ from fontTools.pens.recordingPen import RecordingPen, RecordingPointPen
 from fontTools.misc.arrayTools import unionRect
 from fontTools.pens.cairoPen import CairoPen
 
+from dataclasses import dataclass
+
 import cairo
 import gi
 
@@ -11,6 +13,15 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
 COLORS = [(1,0,0), (0,0,1)]
+
+
+@dataclass
+class Segment:
+    pos: complex
+    vec: complex
+
+    def __len__(self):
+        return abs(self.vec)
 
 
 def render(fonts, glyphname, cr, width, height):
@@ -60,6 +71,30 @@ def render(fonts, glyphname, cr, width, height):
         cr.set_line_width(5)
         cr.stroke()
     cr.restore()
+
+    paths = []
+    for glyph,glyphset in zip(glyphs,glyphsets):
+        pen = CairoPen(glyphset, cr)
+        glyph.draw(pen)
+        paths.append(cr.copy_path_flat())
+
+    outlines = []
+    for path in paths:
+        outline = []
+        outlines.append(outline)
+        for tp, pts in path:
+            if tp == cairo.PATH_MOVE_TO:
+                first = last = complex(*pts)
+            elif tp == cairo.PATH_LINE_TO:
+                pt = complex(*pts)
+                outline.append(Segment(last, pt - last))
+                last = pt
+            elif tp == cairo.PATH_CLOSE_PATH:
+                if last != first:
+                    outline.append(Segment(last, first - last))
+                first = last = None
+            else:
+                assert False, tp
 
 
 def main(font1, font2, glyphname=None):
