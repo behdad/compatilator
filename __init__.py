@@ -4,7 +4,9 @@ from fontTools.pens.recordingPen import RecordingPen, RecordingPointPen
 from fontTools.misc.arrayTools import unionRect
 from fontTools.pens.cairoPen import CairoPen
 
+import sys
 import math
+import functools
 from dataclasses import dataclass
 
 import cairo
@@ -13,7 +15,7 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
-COLORS = [(1,0,0), (0,0,1)]
+COLORS = [(.8,0,0), (0,0,.8), (0,.8,0)]
 
 
 @dataclass
@@ -24,20 +26,56 @@ class Segment:
     def __abs__(self):
         return abs(self.vec)
 
+    def cost(self, other):
+        #return abs(other.pos - self.pos)
+        return abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec))
+
+sys.setrecursionlimit(10000)
+
+sol = {}
+
+@functools.cache
+def dp(i, j):
+    global o1, o2, sol
+
+    if i == 0 and j == 0:
+        return 0
+
+    ret = math.inf
+
+    if i and j:
+
+        s = dp(i - 1, j - 1) + o1[i - 1].cost(o2[j - 1])
+        if s < ret:
+            ret = s
+            sol[(i, j)] = (i - 1, j - 1)
+
+        s = dp(i - 1, j) + o1[i - 1].cost(o2[j - 1])
+        if s < ret:
+            ret = s
+            sol[(i, j)] = (i - 1, j)
+
+        s = dp(i, j - 1) + o1[i - 1].cost(o2[j - 1])
+        if s < ret:
+            ret = s
+            sol[(i, j)] = (i, j - 1)
+
+    return ret
 
 def solve(outlines):
 
-    # Rotate outlines to have point with min y first XXX
+    # Rotate outlines to have point with max y first XXX
     new_outlines = []
     for outline in outlines:
-        i = min(range(len(outline)), key=lambda j: outline[j].pos.imag)
+        i = min(range(len(outline)), key=lambda j: outline[j].pos.real)
         new_outlines.append(outline[i:]+outline[:i])
     outlines = new_outlines
     del new_outlines
 
+    global o1, o2
     o1, o2 = outlines
-
-
+    n1, n2 = len(o1), len(o2)
+    return dp(len(o1), len(o2))
 
 
 def render(fonts, glyphname, cr, width, height):
@@ -117,7 +155,7 @@ def render(fonts, glyphname, cr, width, height):
 
     # Uniform parametrization of outlines
     new_outlines = []
-    tolerance = 1 # cr.get_tolerance() * 5
+    tolerance = 4 # cr.get_tolerance() * 5
     for outline in outlines:
         new_outline = []
         new_outlines.append(new_outline)
@@ -132,6 +170,33 @@ def render(fonts, glyphname, cr, width, height):
     del new_outlines
 
     print(solve(outlines))
+
+    # Draw solution
+
+    o1, o2 = outlines
+    cr.set_line_width(2)
+    cr.set_source_rgb(*COLORS[2])
+    for t in (.25, .5, .75):
+        cr.new_path()
+        i = 0
+        cur = len(o1), len(o2)
+        while cur[0] or cur[1]:
+            cur = sol[cur]
+
+            p0 = o1[cur[0] - 1].pos
+            p1 = o2[cur[1] - 1].pos
+            p = p0 + (p1 - p0) * t
+            cr.line_to(p.real, p.imag)
+
+            i += 1
+            if i % 10 == 0:
+                pass
+                #cr.move_to(p0.real, p.imag)
+                #cr.line_to(p1.real, p.imag)
+                #cr.stroke()
+        cr.close_path()
+        cr.stroke()
+
 
 
 def main(font1, font2, glyphname=None):
