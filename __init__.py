@@ -27,8 +27,11 @@ class Segment:
         return abs(self.vec)
 
     def cost(self, other):
+        #angle1 = math.atan2(self.vec.real, self.vec.imag)
+        #angle2 = math.atan2(other.vec.real, other.vec.imag)
+        #return abs(angle1 - angle2)
         #return abs(other.pos - self.pos)
-        return abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec))
+        return (abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec)))
 
 sys.setrecursionlimit(10000)
 
@@ -64,7 +67,7 @@ def dp(i, j):
 
 def solve(outlines):
 
-    # Rotate outlines to have point with max y first XXX
+    # Rotate outlines to have point with one extrema first XXX
     new_outlines = []
     for outline in outlines:
         i = min(range(len(outline)), key=lambda j: outline[j].pos.real)
@@ -169,45 +172,89 @@ def render(fonts, glyphname, cr, width, height):
     outlines = new_outlines
     del new_outlines
 
-    # Draw outline angle function
-    for outline,color in zip(outlines,COLORS):
-        cr.set_source_rgb(*color)
-        x = 0
-        y = bounds[1]
-        cr.new_path()
-        for segment in outline:
-            angle = math.atan2(segment.vec.real, segment.vec.imag)
-            cr.line_to(angle * 16, y)
-            y += 1
-        cr.stroke()
-
     print(solve(outlines))
 
     # Draw solution
 
-    o1, o2 = outlines
-    cr.set_line_width(2)
-    cr.set_source_rgb(*COLORS[2])
-    for t in (.25, .5, .75):
+    if True:
+        o1, o2 = outlines
+        cr.set_line_width(2)
+        cr.set_source_rgb(*COLORS[2])
+        for t in (.25, .5, .75):
+            cr.new_path()
+            i = 0
+            cur = len(o1), len(o2)
+            while cur[0] or cur[1]:
+                cur = sol[cur]
+
+                p0 = o1[cur[0] - 1].pos
+                p1 = o2[cur[1] - 1].pos
+                p = p0 + (p1 - p0) * t
+                cr.line_to(p.real, p.imag)
+
+            cr.close_path()
+            cr.stroke()
+
+    if True:
+        o1, o2 = outlines
+        cr.set_line_width(1)
+        cr.set_source_rgb(*COLORS[2])
+        for t in (.25, .5, .75):
+            cr.new_path()
+            i = 0
+            cur = len(o1), len(o2)
+            while cur[0] or cur[1]:
+                cur = sol[cur]
+
+                p0 = o1[cur[0] - 1].pos
+                p1 = o2[cur[1] - 1].pos
+                p = p0 + (p1 - p0) * t
+
+                i += 1
+                if i % 16 == 0:
+                    cr.move_to(p0.real, p0.imag)
+                    cr.line_to(p1.real, p1.imag)
+                    cr.stroke()
+
+    # Draw outline angle function
+
+    mag = 16
+    x0 = 0
+    x1 = 100
+    y0 = bounds[1]
+
+    if True:
+        for i,(outline,color) in enumerate(zip(outlines,COLORS)):
+            cr.set_source_rgb(*color)
+            x = x0 + i * x1
+            y = y0
+            cr.new_path()
+            for segment in outline:
+                angle = math.atan2(segment.vec.real, segment.vec.imag)
+                cr.line_to(x + angle * mag, y)
+                y += 1
+            cr.stroke()
+
+    if True:
+        o1, o2 = outlines
+        cr.set_line_width(1)
+        cr.set_source_rgb(*COLORS[2])
         cr.new_path()
         i = 0
         cur = len(o1), len(o2)
         while cur[0] or cur[1]:
             cur = sol[cur]
 
-            p0 = o1[cur[0] - 1].pos
-            p1 = o2[cur[1] - 1].pos
-            p = p0 + (p1 - p0) * t
-            cr.line_to(p.real, p.imag)
+            seg1 = o1[cur[0] - 1]
+            seg2 = o2[cur[1] - 1]
+            angle1 = math.atan2(seg1.vec.real, seg1.vec.imag)
+            angle2 = math.atan2(seg2.vec.real, seg2.vec.imag)
 
             i += 1
-            if i % 10 == 0:
-                pass
-                #cr.move_to(p0.real, p.imag)
-                #cr.line_to(p1.real, p.imag)
-                #cr.stroke()
-        cr.close_path()
-        cr.stroke()
+            if i % 16 == 0:
+                cr.move_to(x0 + angle1 * mag, y0 + cur[0])
+                cr.line_to(x0 + x1 + angle2 * mag, y0 + cur[1])
+                cr.stroke()
 
 
 
