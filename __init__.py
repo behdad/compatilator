@@ -25,6 +25,21 @@ class Segment:
         return abs(self.vec)
 
 
+def solve(outlines):
+
+    # Rotate outlines to have point with min y first XXX
+    new_outlines = []
+    for outline in outlines:
+        i = min(range(len(outline)), key=lambda j: outline[j].pos.imag)
+        new_outlines.append(outline[i:]+outline[:i])
+    outlines = new_outlines
+    del new_outlines
+
+    o1, o2 = outlines
+
+
+
+
 def render(fonts, glyphname, cr, width, height):
 
     glyphsets = [font.getGlyphSet() for font in fonts]
@@ -77,6 +92,7 @@ def render(fonts, glyphname, cr, width, height):
 
     paths = []
     for glyph,glyphset in zip(glyphs,glyphsets):
+        cr.new_path()
         pen = CairoPen(glyphset, cr)
         glyph.draw(pen)
         paths.append(cr.copy_path_flat())
@@ -101,7 +117,7 @@ def render(fonts, glyphname, cr, width, height):
 
     # Uniform parametrization of outlines
     new_outlines = []
-    tolerance = .5 # cr.get_tolerance() * 5
+    tolerance = 1 # cr.get_tolerance() * 5
     for outline in outlines:
         new_outline = []
         new_outlines.append(new_outline)
@@ -114,6 +130,8 @@ def render(fonts, glyphname, cr, width, height):
                 pos += inc
     outlines = new_outlines
     del new_outlines
+
+    print(solve(outlines))
 
 
 def main(font1, font2, glyphname=None):
