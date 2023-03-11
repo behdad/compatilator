@@ -169,6 +169,18 @@ def render(fonts, glyphname, cr, width, height):
     outlines = new_outlines
     del new_outlines
 
+    # Draw outline angle function
+    for outline,color in zip(outlines,COLORS):
+        cr.set_source_rgb(*color)
+        x = 0
+        y = bounds[1]
+        cr.new_path()
+        for segment in outline:
+            angle = math.atan2(segment.vec.real, segment.vec.imag)
+            cr.line_to(angle * 16, y)
+            y += 1
+        cr.stroke()
+
     print(solve(outlines))
 
     # Draw solution
