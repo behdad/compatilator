@@ -27,11 +27,12 @@ class Segment:
         return abs(self.vec)
 
     def cost(self, other):
-        #angle1 = math.atan2(self.vec.real, self.vec.imag)
-        #angle2 = math.atan2(other.vec.real, other.vec.imag)
-        #return abs(angle1 - angle2)
+        angle1 = math.atan2(self.vec.real, self.vec.imag)
+        angle2 = math.atan2(other.vec.real, other.vec.imag)
+
+        return abs(angle1 - angle2)
         #return abs(other.pos - self.pos)
-        return (abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec)))
+        #return (abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec)))
 
 sys.setrecursionlimit(10000)
 
@@ -48,20 +49,15 @@ def dp(i, j):
 
     if i and j:
 
-        s = dp(i - 1, j - 1) + o1[i - 1].cost(o2[j - 1])
-        if s < ret:
-            ret = s
-            sol[(i, j)] = (i - 1, j - 1)
+        lookback = 20
 
-        s = dp(i - 1, j) + o1[i - 1].cost(o2[j - 1])
-        if s < ret:
-            ret = s
-            sol[(i, j)] = (i - 1, j)
-
-        s = dp(i, j - 1) + o1[i - 1].cost(o2[j - 1])
-        if s < ret:
-            ret = s
-            sol[(i, j)] = (i, j - 1)
+        s = 0
+        for k in range(i - 1, max(j - 1, i - lookback) - 1, -1):
+            s = s + o1[k].cost(o2[j - 1])
+            ss = dp(k, j - 1) + s
+            if ss < ret:
+                ret = ss
+                sol[(i, j)] = (k, j - 1)
 
     return ret
 
@@ -158,8 +154,8 @@ def render(fonts, glyphname, cr, width, height):
 
     # Uniform parametrization of outlines
     new_outlines = []
-    tolerance = 4 # cr.get_tolerance() * 5
-    for outline in outlines:
+    #tolerance = 4 # cr.get_tolerance() * 5
+    for outline,tolerance in zip(outlines, (2,4)):
         new_outline = []
         new_outlines.append(new_outline)
         for segment in outline:
@@ -172,7 +168,8 @@ def render(fonts, glyphname, cr, width, height):
     outlines = new_outlines
     del new_outlines
 
-    print(solve(outlines))
+    ret = solve(outlines)
+    print(ret)
 
     # Draw solution
 
@@ -195,7 +192,7 @@ def render(fonts, glyphname, cr, width, height):
             cr.close_path()
             cr.stroke()
 
-    if True:
+    if False:
         o1, o2 = outlines
         cr.set_line_width(1)
         cr.set_source_rgb(*COLORS[2])
@@ -228,11 +225,12 @@ def render(fonts, glyphname, cr, width, height):
             cr.set_source_rgb(*color)
             x = x0 + i * x1
             y = y0
+            yinc = (bounds[3] - bounds[1]) / len(outline)
             cr.new_path()
             for segment in outline:
                 angle = math.atan2(segment.vec.real, segment.vec.imag)
                 cr.line_to(x + angle * mag, y)
-                y += 1
+                y += yinc
             cr.stroke()
 
     if True:
@@ -241,6 +239,7 @@ def render(fonts, glyphname, cr, width, height):
         cr.set_source_rgb(*COLORS[2])
         cr.new_path()
         i = 0
+        height = bounds[3] - bounds[1]
         cur = len(o1), len(o2)
         while cur[0] or cur[1]:
             cur = sol[cur]
@@ -252,8 +251,8 @@ def render(fonts, glyphname, cr, width, height):
 
             i += 1
             if i % 16 == 0:
-                cr.move_to(x0 + angle1 * mag, y0 + cur[0])
-                cr.line_to(x0 + x1 + angle2 * mag, y0 + cur[1])
+                cr.move_to(x0 + angle1 * mag, y0 + cur[0] * height / len(o1))
+                cr.line_to(x0 + x1 + angle2 * mag, y0 + cur[1] * height / len(o2))
                 cr.stroke()
 
 
