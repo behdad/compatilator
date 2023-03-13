@@ -59,6 +59,14 @@ def dp(i, j):
                 ret = ss
                 sol[(i, j)] = (k, j - 1)
 
+        s = 0
+        for k in range(j - 1, max(i - 1, j - lookback) - 1, -1):
+            s = s + o1[i - 1].cost(o2[k])
+            ss = dp(i - 1, k) + s / (j - k) + abs((k / n1) - (j-1) / n2) ** .5 * math.pi
+            if ss < ret:
+                ret = ss
+                sol[(i, j)] = (i - 1, k)
+
     return ret
 
 def solve():
@@ -158,8 +166,8 @@ def render(fonts, glyphname, cr, width, height):
 
     # Uniform parametrization of outlines
     new_outlines = []
-    #tolerance = 4 # cr.get_tolerance() * 5
-    for outline,tolerance in zip(outlines, (2,4)):
+    tolerance = 4 # cr.get_tolerance() * 5
+    for outline in outlines:
         new_outline = []
         new_outlines.append(new_outline)
         for segment in outline:
@@ -183,15 +191,15 @@ def render(fonts, glyphname, cr, width, height):
         cr.set_source_rgb(*COLORS[2])
         for t in (.25, .5, .75):
             cr.new_path()
-            i = 0
             cur = len(o1), len(o2)
             while cur[0] or cur[1]:
-                cur = sol[cur]
 
                 p0 = o1[cur[0] - 1].pos
                 p1 = o2[cur[1] - 1].pos
                 p = p0 + (p1 - p0) * t
                 cr.line_to(p.real, p.imag)
+
+                cur = sol[cur]
 
             cr.close_path()
             cr.stroke()
@@ -205,17 +213,18 @@ def render(fonts, glyphname, cr, width, height):
             i = 0
             cur = len(o1), len(o2)
             while cur[0] or cur[1]:
-                cur = sol[cur]
 
                 p0 = o1[cur[0] - 1].pos
                 p1 = o2[cur[1] - 1].pos
                 p = p0 + (p1 - p0) * t
 
-                i += 1
                 if i % 16 == 0:
                     cr.move_to(p0.real, p0.imag)
                     cr.line_to(p1.real, p1.imag)
                     cr.stroke()
+
+                i += 1
+                cur = sol[cur]
 
     # Draw outline angle function
 
@@ -246,18 +255,19 @@ def render(fonts, glyphname, cr, width, height):
         height = bounds[3] - bounds[1]
         cur = len(o1), len(o2)
         while cur[0] or cur[1]:
-            cur = sol[cur]
 
             seg1 = o1[cur[0] - 1]
             seg2 = o2[cur[1] - 1]
             angle1 = math.atan2(seg1.vec.real, seg1.vec.imag)
             angle2 = math.atan2(seg2.vec.real, seg2.vec.imag)
 
-            i += 1
             if i % 16 == 0:
                 cr.move_to(x0 + angle1 * mag, y0 + (cur[0] - 1) * height / len(o1))
                 cr.line_to(x0 + x1 + angle2 * mag, y0 + (cur[1] - 1) * height / len(o2))
                 cr.stroke()
+
+            i += 1
+            cur = sol[cur]
 
 
 
