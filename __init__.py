@@ -29,8 +29,11 @@ class Segment:
     def cost(self, other):
         angle1 = math.atan2(self.vec.real, self.vec.imag)
         angle2 = math.atan2(other.vec.real, other.vec.imag)
+        diff = abs(angle1 - angle2)
+        if diff > math.pi:
+            diff = math.pi * 2 - diff
 
-        return abs(angle1 - angle2) ** .5 * abs(self.vec)
+        return diff ** .5 * abs(self.vec)
         #return abs(other.vec - self.vec)
         #return (abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec)))
 
@@ -204,7 +207,7 @@ def render(fonts, glyphname, cr, width, height):
             cr.close_path()
             cr.stroke()
 
-    step = 8
+    step = 2
 
     if False:
         o1, o2 = outlines
