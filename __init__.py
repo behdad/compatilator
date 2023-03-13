@@ -145,6 +145,7 @@ def render(fonts, glyphname, cr, width, height):
 
     # Collect outlines from cairo paths
 
+    cr.set_tolerance(.5)
     paths = []
     for glyph,glyphset in zip(glyphs,glyphsets):
         cr.new_path()
