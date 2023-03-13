@@ -30,7 +30,7 @@ class Segment:
         angle1 = math.atan2(self.vec.real, self.vec.imag)
         angle2 = math.atan2(other.vec.real, other.vec.imag)
 
-        return abs(angle1 - angle2) * abs(self.vec)
+        return abs(angle1 - angle2) ** .5 * abs(self.vec)
         #return abs(other.vec - self.vec)
         #return (abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec)))
 
@@ -49,7 +49,7 @@ def dp(i, j):
 
     if i and j:
 
-        lookback = 5
+        lookback = 10
 
         s = 0
         for k in range(i - 1, max(j - 1, i - lookback) - 1, -1):
