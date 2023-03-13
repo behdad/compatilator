@@ -33,7 +33,7 @@ class Segment:
         if diff > math.pi:
             diff = math.pi * 2 - diff
 
-        return diff ** .5 * abs(self.vec)
+        return diff ** .5 * (abs(self.vec) + abs(other.vec))
         #return abs(other.vec - self.vec)
         #return (abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec)))
 
@@ -65,7 +65,7 @@ def dp(i, j):
         s = 0
         for k in range(j - 1, max(0, j - lookback) - 1, -1):
             s = s + o1[i - 1].cost(o2[k])
-            ss = dp(i - 1, k) + s / (j - k) * (j - k)
+            ss = dp(i - 1, k) + s # * (j - k)
             if ss < ret:
                 ret = ss
                 sol[(i, j)] = (i - 1, k)
