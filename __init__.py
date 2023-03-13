@@ -22,18 +22,21 @@ COLORS = [(.8,0,0), (0,0,.8), (0,.8,0)]
 class Segment:
     pos: complex
     vec: complex
+    dvec: complex
 
     def __abs__(self):
         return abs(self.vec)
 
     def cost(self, other):
+        #return abs(self.dvec - other.dvec) ** .33
+
         angle1 = math.atan2(self.vec.real, self.vec.imag)
         angle2 = math.atan2(other.vec.real, other.vec.imag)
         diff = abs(angle1 - angle2)
         if diff > math.pi:
             diff = math.pi * 2 - diff
 
-        return diff ** .5 * (abs(self.vec) + abs(other.vec))
+        return diff ** .5 * (abs(self.vec) + abs(other.vec)) * abs(self.dvec - other.dvec) ** .33
         #return abs(other.vec - self.vec)
         #return (abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec)))
 
@@ -158,11 +161,11 @@ def render(fonts, glyphname, cr, width, height):
                 first = last = complex(*pts)
             elif tp == cairo.PATH_LINE_TO:
                 pt = complex(*pts)
-                outline.append(Segment(last, pt - last))
+                outline.append(Segment(last, pt - last, 0))
                 last = pt
             elif tp == cairo.PATH_CLOSE_PATH:
                 if last != first:
-                    outline.append(Segment(last, first - last))
+                    outline.append(Segment(last, first - last, 0))
                 first = last = None
             else:
                 assert False, tp
@@ -173,12 +176,14 @@ def render(fonts, glyphname, cr, width, height):
     for outline in outlines:
         new_outline = []
         new_outlines.append(new_outline)
+        last = Segment(0, 0, 0)
         for segment in outline:
             n = math.ceil(abs(segment) / tolerance)
             inc = segment.vec / n
             pos = segment.pos
             for i in range(n):
-                new_outline.append(Segment(pos, inc))
+                new_outline.append(Segment(pos, inc, inc - last.vec))
+                last = new_outline[-1]
                 pos += inc
     outlines = new_outlines
     del new_outlines
