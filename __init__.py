@@ -31,7 +31,7 @@ class Segment:
         angle2 = math.atan2(other.vec.real, other.vec.imag)
 
         return abs(angle1 - angle2) * abs(self.vec)
-        #return abs(other.vec - self.vec) * abs(self.vec)
+        #return abs(other.vec - self.vec)
         #return (abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec)))
 
 sys.setrecursionlimit(10000)
@@ -40,7 +40,7 @@ sol = {}
 
 @functools.cache
 def dp(i, j):
-    global o1, o2, sol
+    global o1, o2, n1, n2, sol
 
     if i == 0 and j == 0:
         return 0
@@ -49,12 +49,12 @@ def dp(i, j):
 
     if i and j:
 
-        lookback = 20
+        lookback = 5
 
         s = 0
         for k in range(i - 1, max(j - 1, i - lookback) - 1, -1):
             s = s + o1[k].cost(o2[j - 1])
-            ss = dp(k, j - 1) + s
+            ss = dp(k, j - 1) + s + abs((k / n1) - (j-1) / n2) ** .5 * math.pi
             if ss < ret:
                 ret = ss
                 sol[(i, j)] = (k, j - 1)
@@ -73,7 +73,7 @@ def solve():
     outlines = new_outlines
     del new_outlines
 
-    global o1, o2
+    global o1, o2, n1, n2
     o1, o2 = outlines
     n1, n2 = len(o1), len(o2)
     return dp(len(o1), len(o2))
