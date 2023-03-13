@@ -30,8 +30,8 @@ class Segment:
         angle1 = math.atan2(self.vec.real, self.vec.imag)
         angle2 = math.atan2(other.vec.real, other.vec.imag)
 
-        return abs(angle1 - angle2)
-        #return abs(other.pos - self.pos)
+        return abs(angle1 - angle2) * abs(self.vec)
+        #return abs(other.vec - self.vec) * abs(self.vec)
         #return (abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec)))
 
 sys.setrecursionlimit(10000)
