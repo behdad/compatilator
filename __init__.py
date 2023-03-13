@@ -61,7 +61,9 @@ def dp(i, j):
 
     return ret
 
-def solve(outlines):
+def solve():
+
+    global outlines
 
     # Rotate outlines to have point with one extrema first XXX
     new_outlines = []
@@ -78,6 +80,8 @@ def solve(outlines):
 
 
 def render(fonts, glyphname, cr, width, height):
+
+    global outlines
 
     glyphsets = [font.getGlyphSet() for font in fonts]
     glyphs = [glyphset[glyphname] for glyphset in glyphsets]
@@ -168,7 +172,7 @@ def render(fonts, glyphname, cr, width, height):
     outlines = new_outlines
     del new_outlines
 
-    ret = solve(outlines)
+    ret = solve()
     print(ret)
 
     # Draw solution
@@ -251,8 +255,8 @@ def render(fonts, glyphname, cr, width, height):
 
             i += 1
             if i % 16 == 0:
-                cr.move_to(x0 + angle1 * mag, y0 + cur[0] * height / len(o1))
-                cr.line_to(x0 + x1 + angle2 * mag, y0 + cur[1] * height / len(o2))
+                cr.move_to(x0 + angle1 * mag, y0 + (cur[0] - 1) * height / len(o1))
+                cr.line_to(x0 + x1 + angle2 * mag, y0 + (cur[1] - 1) * height / len(o2))
                 cr.stroke()
 
 
