@@ -36,7 +36,7 @@ class Segment:
         if diff > math.pi:
             diff = math.pi * 2 - diff
 
-        return diff ** .5 * (abs(self.vec) + abs(other.vec)) * abs(self.dvec - other.dvec) ** .33
+        return diff ** .5 * (abs(self.vec) + abs(other.vec)) * (abs(self.dvec - other.dvec) + abs(self.dvec) + abs(other.dvec))
         #return abs(other.vec - self.vec)
         #return (abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec)))
 
