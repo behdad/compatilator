@@ -54,7 +54,7 @@ def dp(i, j):
         s = 0
         for k in range(i - 1, max(j - 1, i - lookback) - 1, -1):
             s = s + o1[k].cost(o2[j - 1])
-            ss = dp(k, j - 1) + s + abs((k / n1) - (j-1) / n2) ** .5 * math.pi
+            ss = dp(k, j - 1) + s + abs(k / n1 - (j-1) / n2) ** .5 * math.pi
             if ss < ret:
                 ret = ss
                 sol[(i, j)] = (k, j - 1)
@@ -62,7 +62,7 @@ def dp(i, j):
         s = 0
         for k in range(j - 1, max(i - 1, j - lookback) - 1, -1):
             s = s + o1[i - 1].cost(o2[k])
-            ss = dp(i - 1, k) + s / (j - k) + abs((k / n1) - (j-1) / n2) ** .5 * math.pi
+            ss = dp(i - 1, k) + s / (j - k) + abs((i-1) / n1 - k / n2) ** .5 * math.pi
             if ss < ret:
                 ret = ss
                 sol[(i, j)] = (i - 1, k)
@@ -268,7 +268,6 @@ def render(fonts, glyphname, cr, width, height):
 
             i += 1
             cur = sol[cur]
-
 
 
 def main(font1, font2, glyphname=None):
