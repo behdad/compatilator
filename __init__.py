@@ -52,7 +52,7 @@ def dp(i, j):
         lookback = 10
 
         s = 0
-        for k in range(i - 1, max(j - 1, i - lookback) - 1, -1):
+        for k in range(i - 1, max(0, i - lookback) - 1, -1):
             s = s + o1[k].cost(o2[j - 1])
             ss = dp(k, j - 1) + s + abs(k / n1 - (j-1) / n2) ** .5 * math.pi
             if ss < ret:
@@ -60,7 +60,7 @@ def dp(i, j):
                 sol[(i, j)] = (k, j - 1)
 
         s = 0
-        for k in range(j - 1, max(i - 1, j - lookback) - 1, -1):
+        for k in range(j - 1, max(0, j - lookback) - 1, -1):
             s = s + o1[i - 1].cost(o2[k])
             ss = dp(i - 1, k) + s / (j - k) + abs((i-1) / n1 - k / n2) ** .5 * math.pi
             if ss < ret:
@@ -204,6 +204,8 @@ def render(fonts, glyphname, cr, width, height):
             cr.close_path()
             cr.stroke()
 
+    step = 8
+
     if False:
         o1, o2 = outlines
         cr.set_line_width(1)
@@ -218,7 +220,7 @@ def render(fonts, glyphname, cr, width, height):
                 p1 = o2[cur[1] - 1].pos
                 p = p0 + (p1 - p0) * t
 
-                if i % 16 == 0:
+                if i % step == 0:
                     cr.move_to(p0.real, p0.imag)
                     cr.line_to(p1.real, p1.imag)
                     cr.stroke()
@@ -261,7 +263,7 @@ def render(fonts, glyphname, cr, width, height):
             angle1 = math.atan2(seg1.vec.real, seg1.vec.imag)
             angle2 = math.atan2(seg2.vec.real, seg2.vec.imag)
 
-            if i % 16 == 0:
+            if i % step == 0:
                 cr.move_to(x0 + angle1 * mag, y0 + (cur[0] - 1) * height / len(o1))
                 cr.line_to(x0 + x1 + angle2 * mag, y0 + (cur[1] - 1) * height / len(o2))
                 cr.stroke()
