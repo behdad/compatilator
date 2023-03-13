@@ -68,7 +68,7 @@ def dp(i, j):
         s = 0
         for k in range(j - 1, max(0, j - lookback) - 1, -1):
             s = s + o1[i - 1].cost(o2[k])
-            ss = dp(i - 1, k) + s # * (j - k)
+            ss = dp(i - 1, k) + s * (j - k)
             if ss < ret:
                 ret = ss
                 sol[(i, j)] = (i - 1, k)
