@@ -217,7 +217,7 @@ def render(fonts, glyphname, cr, width, height):
             cr.close_path()
             cr.stroke()
 
-    step = 2
+    step = 3
 
     if False:
         o1, o2 = outlines
@@ -279,6 +279,49 @@ def render(fonts, glyphname, cr, width, height):
             if i % step == 0:
                 cr.move_to(x0 + angle1 * mag, y0 + (cur[0] - 1) * height / len(o1))
                 cr.line_to(x0 + x1 + angle2 * mag, y0 + (cur[1] - 1) * height / len(o2))
+                cr.stroke()
+
+            i += 1
+            cur = sol[cur]
+
+    # Draw outline angle-derivative-magnitude function
+
+    mag = 16
+    x0 = bounds[2] - 150
+    x1 = 100
+    y0 = bounds[1]
+
+    if True:
+        for i,(outline,color) in enumerate(zip(outlines,COLORS)):
+            cr.set_source_rgb(*color)
+            x = x0 + i * x1
+            y = y0
+            yinc = (bounds[3] - bounds[1]) / len(outline)
+            cr.new_path()
+            for segment in outline:
+                v = abs(segment.dvec)
+                cr.line_to(x + v * mag, y)
+                y += yinc
+            cr.stroke()
+
+    if True:
+        o1, o2 = outlines
+        cr.set_line_width(1)
+        cr.set_source_rgb(*COLORS[2])
+        cr.new_path()
+        i = 0
+        height = bounds[3] - bounds[1]
+        cur = len(o1), len(o2)
+        while cur[0] or cur[1]:
+
+            seg1 = o1[cur[0] - 1]
+            seg2 = o2[cur[1] - 1]
+            v1 = abs(seg1.dvec)
+            v2 = abs(seg2.dvec)
+
+            if i % step == 0:
+                cr.move_to(x0 + v1 * mag, y0 + (cur[0] - 1) * height / len(o1))
+                cr.line_to(x0 + x1 + v2 * mag, y0 + (cur[1] - 1) * height / len(o2))
                 cr.stroke()
 
             i += 1
