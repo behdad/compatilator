@@ -71,8 +71,14 @@ class Corner:
             diff += 2 * math.pi
         return diff
 
-def cost(part, whole, n):
-    return abs(part.turn() - whole.turn() / n)
+def cost(s0, s1):
+    l0 = sum(c.length() for c in s0)
+    l1 = sum(c.length() for c in s1)
+    t0 = sum(c.turn() for c in s0)
+    t1 = sum(c.turn() for c in s1)
+    l = abs(l0 - l1)
+    t = abs(t0 - t1)
+    return t# + l
 
 sys.setrecursionlimit(10000)
 
@@ -89,21 +95,17 @@ def dp(i, j):
 
     if i and j:
 
-        lookback = 5
+        lookback = 6
 
         for k in range(i - 1, max(0, i - lookback) - 1, -1):
-            s = 0
-            for l in range(k, i):
-                s += cost(o1[l], o2[j - 1], i - k)
+            s = cost(o1[k:i], o2[j - 1:j])
             ss = dp(k, j - 1) + s
             if ss < ret:
                 ret = ss
                 sol[(i, j)] = (k, j - 1)
 
         for k in range(j - 1, max(0, j - lookback) - 1, -1):
-            s = 0
-            for l in range(k, j):
-                s += cost(o2[l], o1[i - 1], j - k)
+            s = cost(o1[i-1:i], o2[k:j])
             ss = dp(i - 1, k) + s
             if ss < ret:
                 ret = ss
@@ -207,7 +209,7 @@ def render(fonts, glyphname, cr, width, height):
                 currentPt = p1
             elif op == 'qCurveTo':
                 # Split curve into fixed number of segments
-                n = 1
+                n = 3
                 p0 = currentPt.real,currentPt.imag
                 p1 = args[0]
                 p2 = args[1]
@@ -246,7 +248,7 @@ def render(fonts, glyphname, cr, width, height):
         o1, o2 = outlines
         cr.set_line_width(2)
         cr.set_source_rgb(*COLORS[2])
-        for t in (.7,):
+        for t in (.5,):
             cr.new_path()
             cur = len(o1), len(o2)
             while cur[0] or cur[1]:
