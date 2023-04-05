@@ -2,6 +2,7 @@ from fontTools.ttLib import TTFont
 from fontTools.pens.boundsPen import BoundsPen, ControlBoundsPen
 from fontTools.pens.recordingPen import RecordingPen, RecordingPointPen
 from fontTools.misc.arrayTools import unionRect
+from fontTools.misc.bezierTools import calcQuadraticArcLengthC, splitCubicAtTC, splitQuadraticAtT
 from fontTools.pens.cairoPen import CairoPen
 
 import sys
@@ -19,26 +20,59 @@ COLORS = [(.8,0,0), (0,0,.8), (0,.8,0)]
 
 
 @dataclass
-class Segment:
-    pos: complex
-    vec: complex
-    dvec: complex
+class Curve:
+    p0: complex
+    p1: complex
+    p2: complex
 
-    def __abs__(self):
-        return abs(self.vec)
+    def asCubic(self):
+        p0 = self.p0
+        p1 = self.p1
+        p2 = self.p2
+        return p0,p0+(p1-p0)*2/3,p2+(p1-p2)*2/3,p2
 
-    def cost(self, other):
-        #return abs(self.dvec - other.dvec) ** .33
+    def length(self):
+        return calcQuadraticArcLengthC(self.p0, self.p1, self.p2)
 
-        angle1 = math.atan2(self.vec.real, self.vec.imag)
-        angle2 = math.atan2(other.vec.real, other.vec.imag)
-        diff = abs(angle1 - angle2)
+    def turn(self):
+        vec = self.p1 - self.p0
+        angle1 = math.atan2(vec.real, vec.imag)
+        vec = self.p2 - self.p1
+        angle2 = math.atan2(vec.real, vec.imag)
+        diff = angle2 - angle1
         if diff > math.pi:
-            diff = math.pi * 2 - diff
+            diff -= 2 * math.pi
+        elif diff < -math.pi:
+            diff += 2 * math.pi
+        return diff
 
-        return diff ** .5 * (abs(self.vec) + abs(other.vec)) * 2 ** (abs(self.dvec - other.dvec))
-        #return abs(other.vec - self.vec)
-        #return (abs(other.vec - self.vec) / max(abs(other.vec), abs(self.vec)))
+@dataclass
+class Corner:
+    pl: complex # last point
+    p0: complex # corner point
+    p1: complex # next point
+
+    def asCubic(self):
+        p0 = self.p0
+        return p0,p0,p0,p0
+
+    def length(self):
+        return 0
+
+    def turn(self):
+        vec = self.p0 - self.pl
+        angle1 = math.atan2(vec.real, vec.imag)
+        vec = self.p1 - self.p0
+        angle2 = math.atan2(vec.real, vec.imag)
+        diff = angle2 - angle1
+        if diff > math.pi:
+            diff -= 2 * math.pi
+        elif diff < -math.pi:
+            diff += 2 * math.pi
+        return diff
+
+def cost(part, whole, n):
+    return abs(part.turn() - whole.turn() / n)
 
 sys.setrecursionlimit(10000)
 
@@ -55,24 +89,22 @@ def dp(i, j):
 
     if i and j:
 
-        lookback = 10
+        lookback = 5
 
-        s = 0
         for k in range(i - 1, max(0, i - lookback) - 1, -1):
-            s = s + o1[k].cost(o2[j - 1])
-            if s * (i - k) >= ret:
-                break
-            ss = dp(k, j - 1) + s * (i - k)
+            s = 0
+            for l in range(k, i):
+                s += cost(o1[l], o2[j - 1], i - k)
+            ss = dp(k, j - 1) + s
             if ss < ret:
                 ret = ss
                 sol[(i, j)] = (k, j - 1)
 
-        s = 0
         for k in range(j - 1, max(0, j - lookback) - 1, -1):
-            s = s + o1[i - 1].cost(o2[k])
-            if s * (j - k) >= ret:
-                break
-            ss = dp(i - 1, k) + s * (j - k)
+            s = 0
+            for l in range(k, j):
+                s += cost(o2[l], o1[i - 1], j - k)
+            ss = dp(i - 1, k) + s
             if ss < ret:
                 ret = ss
                 sol[(i, j)] = (i - 1, k)
@@ -86,7 +118,7 @@ def solve():
     # Rotate outlines to have point with one extrema first XXX
     new_outlines = []
     for outline in outlines:
-        i = min(range(len(outline)), key=lambda j: outline[j].pos.real)
+        i = min(range(len(outline)), key=lambda j: outline[j].p0.real)
         new_outlines.append(outline[i:]+outline[:i])
     outlines = new_outlines
     del new_outlines
@@ -147,51 +179,63 @@ def render(fonts, glyphname, cr, width, height):
         cr.stroke()
     cr.restore()
 
-    # Collect outlines from cairo paths
+    # Collect outlines
 
-    cr.set_tolerance(.5)
-    paths = []
-    for glyph,glyphset in zip(glyphs,glyphsets):
-        cr.new_path()
-        pen = CairoPen(glyphset, cr)
-        glyph.draw(pen)
-        paths.append(cr.copy_path_flat())
+    recordings = []
+    for glyph in glyphs:
+        r = RecordingPen()
+        glyph.draw(r)
+        recordings.append(r.value)
+
+    curves = []
+    for rec in recordings:
+        curve = []
+        curves.append(curve)
+        startPt = currentPt = None
+        for op,args in rec:
+            if op == 'moveTo':
+                startPt = currentPt = complex(*args[0])
+            elif op == 'closePath':
+                if currentPt != startPt:
+                    midPt = (currentPt + startPt) * .5
+                    curve.append(Curve(p0 = currentPt, p1 = midPt, p2 = startPt))
+                startPt = currentPt = None
+            elif op == 'lineTo':
+                p1 = complex(*args[0])
+                midPt = (currentPt + p1) * .5
+                curve.append(Curve(p0 = currentPt, p1 = midPt, p2 = p1))
+                currentPt = p1
+            elif op == 'qCurveTo':
+                # Split curve into fixed number of segments
+                n = 1
+                p0 = currentPt.real,currentPt.imag
+                p1 = args[0]
+                p2 = args[1]
+                ts = [i / n for i in range(1, n)]
+                parts = splitQuadraticAtT(p0, p1, p2, *ts)
+                for part in parts:
+                    curve.append(Curve(p0 = complex(*part[0]),
+                                       p1 = complex(*part[1]),
+                                       p2 = complex(*part[2])))
+                currentPt = complex(*p2)
+            elif op == 'curveTo':
+                raise NotImplementedError
 
     outlines = []
-    for path in paths:
-        outline = []
-        outlines.append(outline)
-        for tp, pts in path:
-            if tp == cairo.PATH_MOVE_TO:
-                first = last = complex(*pts)
-            elif tp == cairo.PATH_LINE_TO:
-                pt = complex(*pts)
-                outline.append(Segment(last, pt - last, 0))
-                last = pt
-            elif tp == cairo.PATH_CLOSE_PATH:
-                if last != first:
-                    outline.append(Segment(last, first - last, 0))
-                first = last = None
-            else:
-                assert False, tp
+    for curve in curves:
+        segments = []
+        outlines.append(segments)
+        for i in range(len(curve)):
+            c = curve[i]
+            l = curve[i - 1]
 
-    # Uniform parametrization of outlines
-    new_outlines = []
-    tolerance = 4 # cr.get_tolerance() * 5
-    for outline in outlines:
-        new_outline = []
-        new_outlines.append(new_outline)
-        last = Segment(0, 0, 0)
-        for segment in outline:
-            n = math.ceil(abs(segment) / tolerance)
-            inc = segment.vec / n
-            pos = segment.pos
-            for i in range(n):
-                new_outline.append(Segment(pos, inc, inc - last.vec))
-                last = new_outline[-1]
-                pos += inc
-    outlines = new_outlines
-    del new_outlines
+            # Add the corner segment
+            segments.append(Corner(l.p1, c.p0, c.p1))
+
+            # Add the curve segment
+
+            segments.append(c)
+
 
     ret = solve()
     print(ret)
@@ -202,22 +246,47 @@ def render(fonts, glyphname, cr, width, height):
         o1, o2 = outlines
         cr.set_line_width(2)
         cr.set_source_rgb(*COLORS[2])
-        for t in (.25, .5, .75):
+        for t in (.7,):
             cr.new_path()
             cur = len(o1), len(o2)
             while cur[0] or cur[1]:
 
-                p0 = o1[cur[0] - 1].pos
-                p1 = o2[cur[1] - 1].pos
-                p = p0 + (p1 - p0) * t
-                cr.line_to(p.real, p.imag)
+                next_cur = sol[cur]
+                assert cur[0] - next_cur[0] == 1 or cur[1] - next_cur[1] == 1
 
-                cur = sol[cur]
+                #print()
+                #print(o1[next_cur[0]:cur[0]])
+                #print(o2[next_cur[1]:cur[1]])
+                cs1 = [c.asCubic() for c in o1[next_cur[0]:cur[0]]]
+                cs2 = [c.asCubic() for c in o2[next_cur[1]:cur[1]]]
+                assert len(cs1) == 1 or len(cs2) == 1
+                swapped = False
+                if len(cs1) != 1:
+                    swapped = True
+                    cs1, cs2 = cs2, cs1
+
+                # Split cs1 to len(cs2) segments at equal t's
+                n = len(cs2)
+                ts = [i / n for i in range(1, n)]
+                cs1 = list(splitCubicAtTC(*cs1[0], *ts))
+                assert len(cs1) == len(cs2)
+
+                if swapped:
+                    cs1, cs2 = cs2, cs1
+
+                for c1, c2 in zip(cs1, cs2):
+                    ps = c1
+                    qs = c2
+                    rs = tuple(p + (q - p) * t for p,q in zip(ps,qs))
+                    cr.move_to(rs[0].real, rs[0].imag)
+                    cr.curve_to(rs[1].real, rs[1].imag,
+                                rs[2].real, rs[2].imag,
+                                rs[3].real, rs[3].imag)
+
+                cur = next_cur
 
             cr.close_path()
             cr.stroke()
-
-    step = 3
 
     if False:
         o1, o2 = outlines
@@ -225,107 +294,18 @@ def render(fonts, glyphname, cr, width, height):
         cr.set_source_rgb(*COLORS[2])
         for t in (.25, .5, .75):
             cr.new_path()
-            i = 0
             cur = len(o1), len(o2)
             while cur[0] or cur[1]:
 
-                p0 = o1[cur[0] - 1].pos
-                p1 = o2[cur[1] - 1].pos
-                p = p0 + (p1 - p0) * t
+                p = o1[cur[0] - 1].p0
+                q = o2[cur[1] - 1].p0
+                cr.move_to(p.real, p.imag)
+                cr.line_to(q.real, q.imag)
 
-                if i % step == 0:
-                    cr.move_to(p0.real, p0.imag)
-                    cr.line_to(p1.real, p1.imag)
-                    cr.stroke()
-
-                i += 1
                 cur = sol[cur]
 
-    # Draw outline angle function
-
-    mag = 16
-    x0 = 0
-    x1 = 100
-    y0 = bounds[1]
-
-    if True:
-        for i,(outline,color) in enumerate(zip(outlines,COLORS)):
-            cr.set_source_rgb(*color)
-            x = x0 + i * x1
-            y = y0
-            yinc = (bounds[3] - bounds[1]) / len(outline)
-            cr.new_path()
-            for segment in outline:
-                angle = math.atan2(segment.vec.real, segment.vec.imag)
-                cr.line_to(x + angle * mag, y)
-                y += yinc
             cr.stroke()
 
-    if True:
-        o1, o2 = outlines
-        cr.set_line_width(1)
-        cr.set_source_rgb(*COLORS[2])
-        cr.new_path()
-        i = 0
-        height = bounds[3] - bounds[1]
-        cur = len(o1), len(o2)
-        while cur[0] or cur[1]:
-
-            seg1 = o1[cur[0] - 1]
-            seg2 = o2[cur[1] - 1]
-            angle1 = math.atan2(seg1.vec.real, seg1.vec.imag)
-            angle2 = math.atan2(seg2.vec.real, seg2.vec.imag)
-
-            if i % step == 0:
-                cr.move_to(x0 + angle1 * mag, y0 + (cur[0] - 1) * height / len(o1))
-                cr.line_to(x0 + x1 + angle2 * mag, y0 + (cur[1] - 1) * height / len(o2))
-                cr.stroke()
-
-            i += 1
-            cur = sol[cur]
-
-    # Draw outline angle-derivative-magnitude function
-
-    mag = 16
-    x0 = bounds[2] - 150
-    x1 = 100
-    y0 = bounds[1]
-
-    if True:
-        for i,(outline,color) in enumerate(zip(outlines,COLORS)):
-            cr.set_source_rgb(*color)
-            x = x0 + i * x1
-            y = y0
-            yinc = (bounds[3] - bounds[1]) / len(outline)
-            cr.new_path()
-            for segment in outline:
-                v = abs(segment.dvec)
-                cr.line_to(x + v * mag, y)
-                y += yinc
-            cr.stroke()
-
-    if True:
-        o1, o2 = outlines
-        cr.set_line_width(1)
-        cr.set_source_rgb(*COLORS[2])
-        cr.new_path()
-        i = 0
-        height = bounds[3] - bounds[1]
-        cur = len(o1), len(o2)
-        while cur[0] or cur[1]:
-
-            seg1 = o1[cur[0] - 1]
-            seg2 = o2[cur[1] - 1]
-            v1 = abs(seg1.dvec)
-            v2 = abs(seg2.dvec)
-
-            if i % step == 0:
-                cr.move_to(x0 + v1 * mag, y0 + (cur[0] - 1) * height / len(o1))
-                cr.line_to(x0 + x1 + v2 * mag, y0 + (cur[1] - 1) * height / len(o2))
-                cr.stroke()
-
-            i += 1
-            cur = sol[cur]
 
 
 def main(font1, font2, glyphname=None):
