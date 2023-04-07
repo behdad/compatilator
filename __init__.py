@@ -259,17 +259,26 @@ def render(fonts, glyphname, cr, width, height):
                 #print()
                 #print(o1[next_cur[0]:cur[0]])
                 #print(o2[next_cur[1]:cur[1]])
-                cs1 = [c.asCubic() for c in o1[next_cur[0]:cur[0]]]
-                cs2 = [c.asCubic() for c in o2[next_cur[1]:cur[1]]]
+                cs1 = [c for c in o1[next_cur[0]:cur[0]]]
+                cs2 = [c for c in o2[next_cur[1]:cur[1]]]
                 assert len(cs1) == 1 or len(cs2) == 1
                 swapped = False
                 if len(cs1) != 1:
                     swapped = True
                     cs1, cs2 = cs2, cs1
 
-                # Split cs1 to len(cs2) segments at equal t's
+                # Split cs1 to len(cs2) segments by curve lengths
                 n = len(cs2)
-                ts = [i / n for i in range(1, n)]
+                total = sum(c.length() for c in cs2)
+                sm = 0
+                ts = []
+                for c in cs2[:-1]:
+                    sm += c.length()
+                    ts.append(sm / total)
+
+                cs1 = [c.asCubic() for c in cs1]
+                cs2 = [c.asCubic() for c in cs2]
+
                 cs1 = list(splitCubicAtTC(*cs1[0], *ts))
                 assert len(cs1) == len(cs2)
 
