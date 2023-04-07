@@ -4,6 +4,7 @@ from fontTools.pens.recordingPen import RecordingPen, RecordingPointPen
 from fontTools.misc.arrayTools import unionRect
 from fontTools.misc.bezierTools import calcQuadraticArcLengthC, splitCubicAtTC, splitQuadraticAtT
 from fontTools.pens.cairoPen import CairoPen
+from fontPens.flattenPen import FlattenPen
 
 import sys
 import math
@@ -32,7 +33,10 @@ class Curve:
         return p0,p0+(p1-p0)*2/3,p2+(p1-p2)*2/3,p2
 
     def length(self):
-        return calcQuadraticArcLengthC(self.p0, self.p1, self.p2)
+        l = getattr(self, '_length', None)
+        if l == None:
+            l = self._length = calcQuadraticArcLengthC(self.p0, self.p1, self.p2)
+        return l
 
     def turn(self):
         vec = self.p1 - self.p0
@@ -78,7 +82,7 @@ def cost(s0, s1):
     t1 = sum(c.turn() for c in s1)
     l = abs(l0 - l1)
     t = abs(t0 - t1)
-    return t# + l
+    return t * 500 + l
 
 sys.setrecursionlimit(10000)
 
@@ -95,7 +99,7 @@ def dp(i, j):
 
     if i and j:
 
-        lookback = 6
+        lookback = 3
 
         for k in range(i - 1, max(0, i - lookback) - 1, -1):
             s = cost(o1[k:i], o2[j - 1:j])
@@ -186,7 +190,8 @@ def render(fonts, glyphname, cr, width, height):
     recordings = []
     for glyph in glyphs:
         r = RecordingPen()
-        glyph.draw(r)
+        f = FlattenPen(r, approximateSegmentLength=10, segmentLines=True)
+        glyph.draw(f)
         recordings.append(r.value)
 
     curves = []
@@ -209,17 +214,12 @@ def render(fonts, glyphname, cr, width, height):
                 currentPt = p1
             elif op == 'qCurveTo':
                 # Split curve into fixed number of segments
-                n = 3
-                p0 = currentPt.real,currentPt.imag
-                p1 = args[0]
-                p2 = args[1]
-                ts = [i / n for i in range(1, n)]
-                parts = splitQuadraticAtT(p0, p1, p2, *ts)
-                for part in parts:
-                    curve.append(Curve(p0 = complex(*part[0]),
-                                       p1 = complex(*part[1]),
-                                       p2 = complex(*part[2])))
-                currentPt = complex(*p2)
+                p1 = complex(*args[0])
+                p2 = complex(*args[1])
+                curve.append(Curve(p0 = currentPt,
+                                   p1 = p1,
+                                   p2 = p2))
+                currentPt = p2
             elif op == 'curveTo':
                 raise NotImplementedError
 
